@@ -2,29 +2,52 @@
 
 Kotlin Multiplatform payment SDK (Compose Multiplatform UI) for **Android** and **iOS**.
 
+Helps developers to easily integrate EdfaPay Payment Gateway into their mobile application in a few structured steps.
+
 - **Source:** [github.com/edfapay/paymentGateway](https://github.com/edfapay/paymentGateway)
-- **Maven coordinates (Android):** `io.github.edfapay:payment-sdk-android:<version>`
 - **Minimum Android SDK:** API **24**
 
 ---
 
-## Android integration
+Select platform below and follow the steps to start integration.
 
-Host apps must use **Jetpack Compose** (`ComponentActivity` + `setContent`) because the checkout UI is provided as `@Composable`s.
+> ### [Native (Android)](#native-android)
+>
+> ### [Native (iOS)](#native-ios)
 
-### 1. Quick start
+---
 
-#### 1.1 Dependency
+## Native (Android)
 
-Published releases are intended for **[Maven Central](https://central.sonatype.com/)** under `io.github.edfapay`. Until your version appears on Central, publish locally and point Gradle at `mavenLocal()` or another internal repository.
+### Maven / Gradle
+
+Published releases are intended for **[Maven Central](https://central.sonatype.com/)** under the namespace **`io.github.edfapay`**. Until your version appears on Central, publish locally and point Gradle at `mavenLocal()` or another internal repository (see [Publish and consume (maintainers)](#publish-and-consume-maintainers)).
+
+The library is published as a **Kotlin Multiplatform** artifact; Android apps depend on the **Android** variant:
 
 ```kotlin
+// build.gradle.kts (app)
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     implementation("io.github.edfapay:payment-sdk-android:0.0.1") // replace with your version
 }
 ```
 
-Your **app** module must also enable Compose and use a Kotlin / Compose toolchain compatible with your project (the SDK builds with Kotlin **2.3.x** and Compose Multiplatform aligned dependencies).
+**Verify the exact artifact id** for your release on Central (search `io.github.edfapay`). Gradle coordinates in this repo use the base id `payment-sdk`; KMP publishing typically exposes `payment-sdk-android` for the Android target.
+
+### Toolchain alignment (host app)
+
+Your **app** module must use **Jetpack Compose** (`ComponentActivity` + `setContent`) because checkout is provided as `@Composable`s. Match a toolchain in the same ballpark as the SDK build:
+
+| Component | Version used in this repo (reference) |
+|-----------|----------------------------------------|
+| Kotlin | **2.3.x** |
+| Compose Multiplatform | **1.9.x** (JetBrains Compose BOM stack; see `gradle/libs.versions.toml`) |
+| Android Gradle Plugin | **8.13.x** |
+| JVM target (Android) | **17** |
 
 ```kotlin
 // build.gradle.kts (app)
@@ -42,18 +65,29 @@ kotlin {
 }
 ```
 
-#### 1.2 Manifest
+### ProGuard / R8
+
+The SDK does **not** ship a separate `consumer-rules.pro` today. If minification breaks reflection or serialization at runtime, capture a stack trace and **open an issue** with your R8 full mode / app settings.
+
+### 1. Manifest
+
+**Network** and register your **`Application`** subclass if you initialize the SDK there:
 
 ```xml
 <manifest>
     <uses-permission android:name="android.permission.INTERNET" />
-    ...
+
+    <application
+        android:name=".MyApp"
+        ...>
+        ...
+    </application>
 </manifest>
 ```
 
-#### 1.3 Initialize the SDK (`Application`)
+### 2. Initialize the SDK (`Application`)
 
-Call **`EdfaPgSdk.init` once**, before any payment UI or programmatic API usage. Optionally turn on internal logging:
+Call **`EdfaPgSdk.init` once**, before any payment UI or programmatic API usage. Optional logging:
 
 ```kotlin
 class MyApp : Application() {
@@ -68,7 +102,11 @@ class MyApp : Application() {
 }
 ```
 
-#### 1.4 Show card checkout + 3-D Secure WebView
+### 3. Result URLs (3-D Secure / redirects)
+
+Pass **`successUrl`** and **`failureUrl`** via **`EdfaCardPay.setResultUrls`**. The hosted flow and **`EdfaWebView`** complete when the user lands on one of these URLs. Use the **HTTPS return URLs** your EdfaPay integration or backend documents (they must be consistent with what the gateway expects for your merchant configuration). Your app may still parse query parameters on the final URL for order or transaction hints.
+
+### 4. Show card checkout + 3-D Secure WebView
 
 Configure **`EdfaCardPay`** with order and payer, then present **`EdfaPayUi`**. When the flow needs authentication, **`openWebView`** runs: show **`EdfaWebView`** and hide the sheet (`onDismiss`).
 
@@ -111,10 +149,10 @@ class CheckoutActivity : ComponentActivity() {
                 successUrl = "https://edfapay.com/process-completed",
                 failureUrl = "https://edfapay.com/process-failed",
             )
-            .onTransactionSuccess { _, response ->
+            .onTransactionSuccess { response ->
                 Log.i(TAG, "Success: $response")
             }
-            .onTransactionFailure { _, message ->
+            .onTransactionFailure { message ->
                 Log.e(TAG, "Failure: $message")
             )
 
@@ -153,7 +191,9 @@ class CheckoutActivity : ComponentActivity() {
 }
 ```
 
-Imports (typical):
+**Callbacks:** `onTransactionSuccess` receives a single `Any` payload; `onTransactionFailure` receives an optional `String?` message.
+
+Typical imports:
 
 - `com.edfapay.payment_gateway.app.core.EdfaPgSdk`
 - `com.edfapay.payment_gateway.presentation.EdfaPayUi`
@@ -165,11 +205,7 @@ Imports (typical):
 - `com.edfapay.payment_gateway.data.model.request.payer.EdfaPgPayer`
 - `com.edfapay.payment_gateway.data.model.request.payer.EdfaPgPayerOptions`
 
----
-
-### 2. Full implementation notes
-
-#### 2.1 `EdfaCardPay` builder
+### `EdfaCardPay` builder (reference)
 
 | Builder call | Purpose |
 |--------------|---------|
@@ -185,11 +221,11 @@ Imports (typical):
 | `setResultUrls` | URLs used when completing 3DS / collector redirects in **`EdfaWebView`**. |
 | `onTransactionSuccess` / `onTransactionFailure` | Hosted payment outcome callbacks after sale / redirects as implemented in the SDK. |
 
-#### 2.2 API key lifecycle
+### API key lifecycle
 
-Use **`EdfaPgSdk.updateApiKey(newKey)`** if the key can rotate during a session. **`baseUrl`** is fixed for the process after **`init`**; changing it requires a new process/`Application` lifecycle.
+Use **`EdfaPgSdk.updateApiKey(newKey)`** if the key can rotate during a session. **`baseUrl`** is fixed for the process after **`init`**; changing it requires a new process / `Application` lifecycle.
 
-#### 2.3 Programmatic API (`TransactionProvider`)
+### Programmatic API (`TransactionProvider`)
 
 For dashboards, reconciliation, refunds, or custom sale flows outside the bundled UI:
 
@@ -223,27 +259,34 @@ Add imports for types you use (`InitiateRequestDto`, `SaleRequestDto`, `Order`, 
 
 **Recurring:** complete a successful **sale** with **`setRecurringInit(true)`**, then call **`recurring`** (SDK posts to **`…/api/v2/payment-gateway/recurring`**). Use the ledger **transaction UUID** consistent with **`filterTransaction`**.
 
-#### 2.4 Payer validation (email)
+### Payer validation (email)
 
 `EdfaPgPayer.validate()` enforces required fields and a **strict email pattern** aligned with SDK checks (no **`+`** in the local-part, plain ASCII mailbox pattern).
 
-#### 2.5 3-D Secure / WebView behavior
+### 3-D Secure / WebView behavior
 
-Documented behavior for **`EdfaWebView`** (from SDK KDoc): when the user lands on **`successUrl` / failureUrl**, the SDK invokes **`onSuccess` / `onFailure`** with the **full loaded URL**. Your activity decides when to **`showWebView = false`** (often immediately after success).
+When the user reaches **`successUrl`** or **`failureUrl`**, **`EdfaWebView`** invokes **`onSuccess`** or **`onFailure`** with the **full loaded URL**. Your activity chooses when to hide the WebView (often immediately after handling the URL).
 
 ---
 
-## iOS Host App
+## Native (iOS)
 
-### Swift (`Shared` / SPM module name depends on integration)
+The Kotlin CocoaPods integration in `:library` publishes the **`edfapg_sdk`** pod; the produced framework module name matches **`edfapg_sdk`** (see `cocoapods { name = "edfapg_sdk"; framework { baseName = "edfapg_sdk" } }` in `library/build.gradle.kts`).
+
+Install via **CocoaPods** from your consuming app:
+
+1. Ensure the `:library` project has produced the framework dummy or run `./gradlew :library:generateDummyFramework` before the first **`pod install`**, per the podspec instructions in-repo.
+2. Point your **`Podfile`** at this repository (see `cocoapods` `extraSpecAttributes["source"]` in `library/build.gradle.kts`).
+
+SwiftUI — initialize before UI:
 
 ```swift
-import Shared
+import edfapg_sdk
 
 @main
 struct iOSApp: App {
     init() {
-        EdfaPgSdk.shared.doInit(apiKey: "ADD API KEY HERE", baseUrl: "ADD BASE URL HERE")
+        EdfaPgSdk.shared.doInit(apiKey: "YOUR_API_KEY", baseUrl: "YOUR_BASE_URL")
     }
 
     var body: some Scene {
@@ -254,11 +297,11 @@ struct iOSApp: App {
 }
 ```
 
-### UIKit (`AppDelegate`)
+UIKit — `AppDelegate`:
 
 ```swift
 import UIKit
-import PaymentGateway
+import edfapg_sdk
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -267,22 +310,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         EdfaPgSdk.shared.doInit(
             apiKey: "YOUR_KEY",
-            baseUrl: "https://app-api.edfapay.com"
+            baseUrl: "https://app-api.example.com"
         )
         return true
     }
 }
 ```
 
-### Apple Pay (Kotlin API used from KMP bridging)
+**Note:** Older samples may use **`import PaymentGateway`** when integrating via a **`EdfapayPG`** CocoaPods umbrella with `PRODUCT_MODULE_NAME = PaymentGateway`. Prefer **`edfapg_sdk`** for new apps aligned with the current Gradle Cocoapods name.
 
-See in-repo samples / iOS bridging for **`EdfaApplePay`** and **`EdfaApplePaySheet`**. Apple Pay uses your **merchant identifier** and Xcode capability (**Wallet / Apple Pay**); the certificate is tied to Apple Developer configuration, not passed as a file in SDK calls.
+Compose Multiplatform UI entry points mirror the Kotlin APIs; expose them through your shared KMP **`shared`** Xcode framework if your app wraps the SDK in an umbrella module—in that setup **`import Shared`** only applies to **your** module name, not the SDK vendor name.
+
+### Apple Pay
+
+Apple Pay flows use **`EdfaApplePay`** / **`EdfaApplePaySheet`** from Kotlin APIs bridged into Swift. Enable **Apple Pay** capability and your **merchant identifier** in Xcode. See in-repo wiring and certificates on the Apple Developer account.
 
 ---
 
 ## Publish and consume (maintainers)
 
-Step-by-step **Sonatype user token**, **GPG key creation**, and **`publishToMavenCentral`** checklist: **`docs/PUBLISH_MAVEN_CENTRAL.md`**.
+Step-by-step **Sonatype user token**, **GPG key creation**, and **`publishToMavenCentral`** checklist: **[`docs/PUBLISH_MAVEN_CENTRAL.md`](docs/PUBLISH_MAVEN_CENTRAL.md)**.
 
 ### Repositories used in internal release flows
 
@@ -300,7 +347,6 @@ Update paths and slug for your clones:
 ```bash
 mkdir -p ~/workspace && cd ~/workspace
 git clone git@github.com:edfapay/paymentGateway.git
-# optional: clone your dist artifact repo alongside
 chmod +x paymentGateway/release_to_dist.sh
 ```
 
@@ -310,19 +356,7 @@ export DIST_REPO_SLUG="edfapay/<dist-repo>"
 ./release_to_dist.sh 0.0.1
 ```
 
-Maven Central replaces personal GitHub Pages Maven for **public Android consumers**:
-
-```kotlin
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation("io.github.edfapay:payment-sdk-android:0.0.1")
-}
-```
-
-SwiftPM may still consume a tagged **binary**/`Package.swift` workflow from your dist repo or published XCFramework URLs.
+**Android:** Maven Central is the default distribution for public consumers (`mavenCentral()` + `implementation("io.github.edfapay:payment-sdk-android:…")`). **SwiftPM** may consume a tagged **XCFramework** or binary workflow separately.
 
 ---
 
