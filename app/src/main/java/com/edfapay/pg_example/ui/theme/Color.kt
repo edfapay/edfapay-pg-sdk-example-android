@@ -1,4 +1,4 @@
-package com.edfapay.myapplication.ui.theme
+package com.edfapay.pg_example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

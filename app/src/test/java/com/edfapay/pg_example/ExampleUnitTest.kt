@@ -1,4 +1,4 @@
-package com.edfapay.myapplication
+package com.edfapay.pg_example
 
 import org.junit.Test
 

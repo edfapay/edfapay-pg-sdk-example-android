@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.edfapay.myapplication"
+    namespace = "com.edfapay.pg_example"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.edfapay.myapplication"
+        applicationId = "com.edfapay.pg_example"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
