@@ -4,7 +4,6 @@ Kotlin Multiplatform payment SDK (Compose Multiplatform UI) for **Android** and 
 
 Helps developers to easily integrate EdfaPay Payment Gateway into their mobile application in a few structured steps.
 
-- **Source:** [github.com/edfapay/paymentGateway](https://github.com/edfapay/paymentGateway)
 - **Minimum Android SDK:** API **24**
 
 ---
