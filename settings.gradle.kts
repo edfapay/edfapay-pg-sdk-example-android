@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "edfapay-pg-sdk-sample"
+rootProject.name = "edfapay-pg-sdk-example-android"
 include(":app")
  

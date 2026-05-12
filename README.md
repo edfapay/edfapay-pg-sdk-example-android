@@ -31,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.edfapay:payment-sdk-android:0.0.1") // replace with your version
+    implementation("io.github.edfapay:payment-sdk-android:0.0.2") // replace with your version
 }
 ```
 
